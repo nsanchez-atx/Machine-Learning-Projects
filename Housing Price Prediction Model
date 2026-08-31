@@ -1,3 +1,6 @@
+#Learns from housing data to predict house prices.
+
+
 import csv
 from random import uniform
 
