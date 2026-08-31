@@ -1,0 +1,135 @@
+import csv
+from random import uniform
+
+# Read CSV into a 2D list
+with open('Housing.csv', newline='') as file:
+    reader = csv.reader(file)
+    data = [row for row in reader]
+# Loop through rows (skip header if you have one)
+for i, row in enumerate(data):
+    # Example: skip header
+    if i == 0:
+        continue  
+
+    # Convert columns 5–9 and 11 ("yes"/"no" to 1/0)
+    for col in [5, 6, 7, 8, 9, 11]:
+        value = row[col].strip().lower()
+        if value == 'yes':
+            row[col] = 1
+        elif value == 'no':
+            row[col] = 0
+        else:
+            row[col] = row[col]  # leave as-is if neither
+
+    # Convert column 12 ("furnished" → 0, "semi-furnished" → 1, "unfurnished" → 2)
+    furniture = row[12].strip().lower()
+    if furniture == 'furnished':
+        row[12] = 0
+    elif furniture == 'semi-furnished':
+        row[12] = 1
+    elif furniture == 'unfurnished':
+        row[12] = 2
+    else:
+        row[12] = row[12]  # leave unchanged if no match
+
+# Print the converted 2D array
+for i, row in enumerate(data):
+    for j, value in enumerate(row):
+        try:
+            # Try converting to float first (to handle "56.0", "3.14", etc.)
+            num = float(value)
+            # Then convert to int if it represents a whole number
+            if num.is_integer():
+                data[i][j] = int(num)
+            else:
+                data[i][j] = num  # keep as float if not an integer
+        except (ValueError, TypeError):
+            # Leave non-numeric values (like "yes" or "apple") unchanged
+            pass
+for row in data:
+    first = row.pop(0)   # remove the first element
+    row.append(first)  
+
+data = data[1:]
+
+for row in data:
+    row[0] = row[0] / 10000
+for row in data:
+    row[len(data[0])-1] = row[len(data[0])-1]
+
+
+total = 0
+for row in data:
+    total += row[-1]
+divided = 800000/ total/len(data) 
+# for row in data:
+#     row[-1] = row[-1] * 0.2
+print(data[0][-1])
+
+def predict(row, weights):
+    """Linear prediction (no step function)."""
+    y_hat = weights[-1]  # bias
+    for i in range(len(row) - 1):
+        y_hat += row[i] * weights[i]
+    return y_hat
+
+def train(train_data, n_epoch, l_rate):
+    weight = [uniform(-1, 1) for _ in range(len(train_data[0]))]  # includes bias
+    weight[-1] = uniform(-1, 1)  # bias term
+
+    for epoch in range(n_epoch):
+        total_error = 0
+        within_margin = 0
+        count = 0
+        for row in train_data:
+            actual = row[-1]
+            prediction = predict(row, weight)
+
+            # Compute relative error (%)
+            if actual != 0:
+                rel_error = abs(prediction - actual) / abs(actual)
+            else:
+                rel_error = abs(prediction - actual)
+
+            # Update weights only if prediction is outside ±5% margin
+            if rel_error > 0.1:
+                error = actual - prediction
+                for i in range(len(weight) - 1):
+                    weight[i] += l_rate * error * row[i]
+                weight[-1] += l_rate * error  # bias
+                total_error += abs(error)
+            else:
+                if epoch == n_epoch -1:
+                     print(count, row, prediction)
+                     count += 1
+               
+                within_margin += 1
+                
+
+        # Print progress each epoch
+        accuracy = within_margin / len(train_data) * 100
+        print(f"Epoch {epoch+1}: within ±5% margin = {accuracy:.2f}%, Avg Error = {total_error/len(train_data):.4f}")
+        
+
+    return weight
+
+# Example training call
+weights = train(data, n_epoch=1000, l_rate= 0.02)
+# print(weights)
+
+area = float(input("How much area: "))
+bed = float(input("How many bedrooms: "))
+bath = float(input("How many bathrooms:"))
+storys = float(input("How many stories:"))
+road = float(input("Mainroad?"))
+guestroom = float(input("guestroom?"))
+basement = float(input("basement?"))
+hotwaterheating = float(input("hotwaterheating?"))
+airconditioning = float(input("airconditioning"))
+parking = float(input("parking"))
+prefarea = float(input("prefarea"))
+furnishingstatus = float(input("furnishingstatus"))
+
+uData = [area, bed, bath, storys, road, guestroom, basement, hotwaterheating, airconditioning, parking, prefarea, furnishingstatus, 0]
+uData[0] = uData[0] / 10000
+print("Your house will likely cost", int(predict(uData, weights)), "$")
