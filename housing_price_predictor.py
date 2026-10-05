@@ -1,138 +1,175 @@
-#Learns from housing data to predict house prices.
-
+# Nathan Sanchez
+# Housing Price Prediction Model
+#
+# Learns from housing data and uses the trained weights
+# to estimate the price of a house.
 
 import csv
 from random import uniform
 
-# Read CSV into a 2D list
-with open('Housing.csv', newline='') as file:
+
+# Read housing data from CSV into a 2D list.
+with open("Housing.csv", newline="") as file:
     reader = csv.reader(file)
     data = [row for row in reader]
-# Loop through rows (skip header if you have one)
-for i, row in enumerate(data):
-    # Example: skip header
-    if i == 0:
-        continue  
 
-    # Convert columns 5–9 and 11 ("yes"/"no" to 1/0)
+
+# Convert categorical values into numbers.
+for i, row in enumerate(data):
+    if i == 0:
+        continue
+
+    # Convert yes/no columns to 1/0.
     for col in [5, 6, 7, 8, 9, 11]:
         value = row[col].strip().lower()
-        if value == 'yes':
+
+        if value == "yes":
             row[col] = 1
-        elif value == 'no':
+        elif value == "no":
             row[col] = 0
-        else:
-            row[col] = row[col]  # leave as-is if neither
 
-    # Convert column 12 ("furnished" → 0, "semi-furnished" → 1, "unfurnished" → 2)
+    # Convert furnishing status to a numeric value.
     furniture = row[12].strip().lower()
-    if furniture == 'furnished':
-        row[12] = 0
-    elif furniture == 'semi-furnished':
-        row[12] = 1
-    elif furniture == 'unfurnished':
-        row[12] = 2
-    else:
-        row[12] = row[12]  # leave unchanged if no match
 
-# Print the converted 2D array
+    if furniture == "furnished":
+        row[12] = 0
+    elif furniture == "semi-furnished":
+        row[12] = 1
+    elif furniture == "unfurnished":
+        row[12] = 2
+
+
+# Convert numeric strings into ints or floats.
 for i, row in enumerate(data):
     for j, value in enumerate(row):
         try:
-            # Try converting to float first (to handle "56.0", "3.14", etc.)
-            num = float(value)
-            # Then convert to int if it represents a whole number
-            if num.is_integer():
-                data[i][j] = int(num)
-            else:
-                data[i][j] = num  # keep as float if not an integer
-        except (ValueError, TypeError):
-            # Leave non-numeric values (like "yes" or "apple") unchanged
-            pass
-for row in data:
-    first = row.pop(0)   # remove the first element
-    row.append(first)  
+            number = float(value)
 
+            if number.is_integer():
+                data[i][j] = int(number)
+            else:
+                data[i][j] = number
+
+        except (ValueError, TypeError):
+            pass
+
+
+# Move house price from the first column to the last column.
+for row in data:
+    price = row.pop(0)
+    row.append(price)
+
+
+# Remove the CSV header.
 data = data[1:]
 
+
+# Scale area values to make training more manageable.
 for row in data:
     row[0] = row[0] / 10000
-for row in data:
-    row[len(data[0])-1] = row[len(data[0])-1]
 
 
-total = 0
-for row in data:
-    total += row[-1]
-divided = 800000/ total/len(data) 
-# for row in data:
-#     row[-1] = row[-1] * 0.2
-print(data[0][-1])
-
+# Predict a value using the current weights.
 def predict(row, weights):
-    """Linear prediction (no step function)."""
-    y_hat = weights[-1]  # bias
+    prediction = weights[-1]  # Bias
+
     for i in range(len(row) - 1):
-        y_hat += row[i] * weights[i]
-    return y_hat
+        prediction += row[i] * weights[i]
 
-def train(train_data, n_epoch, l_rate):
-    weight = [uniform(-1, 1) for _ in range(len(train_data[0]))]  # includes bias
-    weight[-1] = uniform(-1, 1)  # bias term
+    return prediction
 
-    for epoch in range(n_epoch):
+
+# Train the prediction model.
+def train(train_data, num_epochs, learning_rate):
+    weights = [
+        uniform(-1, 1)
+        for _ in range(len(train_data[0]))
+    ]
+
+    for epoch in range(num_epochs):
         total_error = 0
         within_margin = 0
-        count = 0
+
         for row in train_data:
             actual = row[-1]
-            prediction = predict(row, weight)
+            prediction = predict(row, weights)
 
-            # Compute relative error (%)
+            # Calculate percentage error.
             if actual != 0:
-                rel_error = abs(prediction - actual) / abs(actual)
+                relative_error = abs(prediction - actual) / abs(actual)
             else:
-                rel_error = abs(prediction - actual)
+                relative_error = abs(prediction - actual)
 
-            # Update weights only if prediction is outside ±5% margin
-            if rel_error > 0.1:
+            # Update weights if prediction is outside the ±5% margin.
+            if relative_error > 0.05:
                 error = actual - prediction
-                for i in range(len(weight) - 1):
-                    weight[i] += l_rate * error * row[i]
-                weight[-1] += l_rate * error  # bias
+
+                for i in range(len(weights) - 1):
+                    weights[i] += learning_rate * error * row[i]
+
+                weights[-1] += learning_rate * error
                 total_error += abs(error)
+
             else:
-                if epoch == n_epoch -1:
-                     print(count, row, prediction)
-                     count += 1
-               
                 within_margin += 1
-                
 
-        # Print progress each epoch
         accuracy = within_margin / len(train_data) * 100
-        print(f"Epoch {epoch+1}: within ±5% margin = {accuracy:.2f}%, Avg Error = {total_error/len(train_data):.4f}")
-        
+        average_error = total_error / len(train_data)
 
-    return weight
+        print(
+            f"Epoch {epoch + 1}: "
+            f"within ±5% margin = {accuracy:.2f}%, "
+            f"Avg Error = {average_error:.4f}"
+        )
 
-# Example training call
-weights = train(data, n_epoch=1000, l_rate= 0.02)
-# print(weights)
+    return weights
 
-area = float(input("How much area: "))
-bed = float(input("How many bedrooms: "))
-bath = float(input("How many bathrooms:"))
-storys = float(input("How many stories:"))
-road = float(input("Mainroad?"))
-guestroom = float(input("guestroom?"))
-basement = float(input("basement?"))
-hotwaterheating = float(input("hotwaterheating?"))
-airconditioning = float(input("airconditioning"))
-parking = float(input("parking"))
-prefarea = float(input("prefarea"))
-furnishingstatus = float(input("furnishingstatus"))
 
-uData = [area, bed, bath, storys, road, guestroom, basement, hotwaterheating, airconditioning, parking, prefarea, furnishingstatus, 0]
-uData[0] = uData[0] / 10000
-print("Your house will likely cost", int(predict(uData, weights)), "$")
+# Train the model.
+weights = train(
+    data,
+    num_epochs=1000,
+    learning_rate=0.02
+)
+
+
+# Get information about a house from the user.
+area = float(input("Area: "))
+bedrooms = float(input("Bedrooms: "))
+bathrooms = float(input("Bathrooms: "))
+stories = float(input("Stories: "))
+mainroad = float(input("Main road? (1=yes, 0=no): "))
+guestroom = float(input("Guest room? (1=yes, 0=no): "))
+basement = float(input("Basement? (1=yes, 0=no): "))
+hotwaterheating = float(input("Hot water heating? (1=yes, 0=no): "))
+airconditioning = float(input("Air conditioning? (1=yes, 0=no): "))
+parking = float(input("Parking spaces: "))
+prefarea = float(input("Preferred area? (1=yes, 0=no): "))
+furnishingstatus = float(
+    input("Furnishing status (0=furnished, 1=semi, 2=unfurnished): ")
+)
+
+
+# Format user data in the same way as the training data.
+user_data = [
+    area,
+    bedrooms,
+    bathrooms,
+    stories,
+    mainroad,
+    guestroom,
+    basement,
+    hotwaterheating,
+    airconditioning,
+    parking,
+    prefarea,
+    furnishingstatus,
+    0
+]
+
+user_data[0] = user_data[0] / 10000
+
+
+predicted_price = predict(user_data, weights)
+
+print("Your house will likely cost $", int(predicted_price))
