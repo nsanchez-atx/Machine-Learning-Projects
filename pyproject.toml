@@ -1,6 +1,9 @@
 [project]
-name = "hello-python"
+name = "machine-learning-projects"
 version = "0.1.0"
-description = "Add your description here"
+description = "Introductory machine learning projects built with Python."
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "pandas"
+]
